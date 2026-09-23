@@ -1,0 +1,11 @@
+import { chromium } from 'playwright-core';
+const [imgs, sims, out, w = '2600'] = process.argv.slice(2);
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const page = await browser.newPage({ viewport: { width: +w, height: 800 } });
+page.on('pageerror', (e) => console.log('[pageerror]', e.message));
+page.on('console', (m) => { if (m.type() === 'error' && !/CERT|XNNPACK|Feedback|OpenGL/.test(m.text())) console.log('[err]', m.text().slice(0, 300)); });
+await page.goto(`http://localhost:5173/dev/qa.html?imgs=${imgs}&sims=${sims}`);
+await page.waitForFunction(() => window.__done, null, { timeout: 560000 });
+console.log((await page.evaluate(() => window.__log)).join('\n---\n'));
+await page.screenshot({ path: out, fullPage: true });
+await browser.close();

@@ -1,0 +1,25 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>mosquito pose sheet (dev)</title>
+<style>body{margin:0;background:#f3e6cf}</style>
+<canvas id="c" width="1400" height="760"></canvas>
+<script src="/hand/core.js"></script>
+<script src="/hand/studio.js"></script>
+<script src="/hand/cels.js"></script>
+<script src="/hand/materials.js"></script>
+<script type="module">
+import { drawMosquito } from '/src/mosquito/actor.ts';
+const c = document.getElementById('c').getContext('2d');
+const poses = [
+  ['fly','fly',0,'up'],['fly','fly',0,'upMid'],['fly','fly',0,'downMid'],['fly','fly',0,'down'],['hover','hover',0,'downMid'],
+  ['fly','reach',0.67,'upMid'],['reach','reach',0,'upMid'],['perch','perch',0,'fold'],['perch','sip',0.34,'fold'],['sip','sip',0,'fold'],
+  ['crouch','crouch',0,'fold'],['crouch','fly',0.34,'upMid'],
+];
+poses.forEach(([from,to,u,wing],i)=>{
+  const x = 150 + (i%5)*270, y = 150 + Math.floor(i/5)*250;
+  c.strokeStyle='rgba(0,0,0,.2)'; c.beginPath(); c.moveTo(x-90,y+44*1.6); c.lineTo(x+110,y+44*1.6); c.stroke();
+  drawMosquito(c,{x,y,scale:1.6,facing:1,tilt:0,from,to,u,wing,sip:i/12,ink:'#1e1630',bloodInk:'#b3262e'});
+  c.fillStyle='#000'; c.font='13px monospace'; c.fillText(`${from}>${to}@${u} ${wing}`, x-90, y+110);
+});
+window.__done = true;
+</script>

@@ -1,0 +1,53 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>film QA (dev)</title>
+<style>body{margin:0;background:#111;color:#ddd;font:12px monospace}.row{display:flex;gap:4px;padding:6px;align-items:flex-start}.cell{display:flex;flex-direction:column;gap:2px}.cell canvas{width:300px}.info{width:300px;white-space:pre-wrap}</style>
+<div id="out"></div>
+<script src="/hand/core.js"></script>
+<script type="module">
+import { processFile } from '/src/engine/pipeline.ts';
+import { FilmRenderer } from '/src/engine/gl/renderer.ts';
+import { uniformsFor } from '/src/engine/develop.ts';
+import { buildLut } from '/src/engine/film/lut.ts';
+import { packAux } from '/src/engine/aux.ts';
+import { autoParams } from '/src/engine/analyze/recommend.ts';
+const q = new URLSearchParams(location.search);
+const names = (q.get('imgs') || 'portrait.jpg').split(',');
+const sims = (q.get('sims') || 'provia,velvia,classic-chrome,classic-neg,nostalgic-neg,eterna,acros').split(',');
+const cv = document.createElement('canvas');
+const R = new FilmRenderer(cv);
+const out = document.getElementById('out');
+const log = [];
+for (const name of names) {
+  const blob = await (await fetch('/dev/imgs/' + name)).blob();
+  const file = new File([blob], name, { type: blob.type });
+  const t0 = performance.now();
+  const p = await processFile(file, 4096, () => {});
+  const ms = Math.round(performance.now() - t0);
+  R.setImage(p.full, p.w, p.h);
+  const row = document.createElement('div'); row.className = 'row'; out.appendChild(row);
+  const info = document.createElement('div'); info.className = 'info';
+  const s = p.scene, st = p.stats;
+  info.textContent = `${name} ${p.w}x${p.h} ${ms}ms\n${s.subject} / ${s.lighting} / ${s.time.inferred}\npicks: ${p.rec.picks.map(x=>x.sim).join(', ')}\nrecipe: ${p.rec.recipe?.name}\ncct ${Math.round(st.cct)} tint ${st.tint.toFixed(2)} key ${st.key.toFixed(3)} dr ${st.drStops.toFixed(1)} dark ${st.darkFrac.toFixed(2)}\nsky ${st.sky.kind} ${st.sky.fraction.toFixed(2)} lights ${st.pointLights} noise ${st.noise.toFixed(1)}\nfaces ${p.vision.faces.length} labels ${p.vision.labels.slice(0,3).map(l=>l.name).join('|')}\nev ${p.params.exposure.toFixed(2)} grain ${p.params.grain} cce ${p.params.cce}\n${s.story}`;
+  row.appendChild(info);
+  log.push(info.textContent);
+  const W = 600, H = Math.round(W * p.h / p.w);
+  const cell = (label, params, original) => {
+    const auxd = packAux(p.work, p.aux, p.mask, params.exposure);
+    R.setAux(auxd, p.work.w, p.work.h);
+    R.setLuts(buildLut(params, 33, false), buildLut(params, 33, true), 33);
+    const u = uniformsFor(params, st, s, { w: p.w, h: p.h }, !!p.mask);
+    R.render(u, [0, 0, 1, 1], W, H, { original });
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    c.getContext('2d').drawImage(cv, 0, 0);
+    const d = document.createElement('div'); d.className = 'cell';
+    d.appendChild(c); const l = document.createElement('span'); l.textContent = label; d.appendChild(l);
+    row.appendChild(d);
+  };
+  cell('original', p.params, true);
+  cell('AUTO: ' + p.params.sim, p.params, false);
+  for (const sim of sims) if (sim !== p.params.sim) cell(sim, autoParams(sim, st, s, p.vision, p.exif), false);
+}
+window.__log = log;
+window.__done = true;
+</script>
