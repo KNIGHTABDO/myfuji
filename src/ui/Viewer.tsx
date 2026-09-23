@@ -137,13 +137,13 @@ export function Viewer() {
       </div>
       <div className="tools" data-left={left}>
         <button className={zoom === 1 ? 'on' : ''} onClick={() => setState({ zoom: 1, pan: [0.5, 0.5] })}>FIT</button>
-        <button className={split !== null ? 'on' : ''} onClick={() => setState({ split: split === null ? 0.5 : null })}>BEFORE | AFTER</button>
+        <button className={split !== null ? 'on' : ''} onClick={() => setState({ split: split === null ? 0.5 : null })}>BEFORE|AFTER</button>
         <button
           onPointerDown={() => setState({ showOriginal: true })}
           onPointerUp={() => setState({ showOriginal: false })}
           onPointerLeave={() => setState({ showOriginal: false })}
           title="Hold to see the original (or hold B)"
-        >HOLD ORIGINAL</button>
+        >HOLD ORIG.</button>
         <button onClick={() => void exportActive()} title="Export (E)">EXPORT ↓</button>
       </div>
       {busy && <div className="busy chip accent">{busy}</div>}

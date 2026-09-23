@@ -62,6 +62,7 @@ export function readScene(img: WorkImage, st: Stats, v: VisionResult, exif: Exif
   const animalSeg = ['cat', 'dog', 'bird', 'horse', 'sheep', 'cow'].reduce((s, k) => s + (v.segFractions[k] ?? 0), 0);
   const people = obj(['person']).filter((o) => o.score > 0.45);
   const tod = timeOfDay(exif);
+  const sunW = tod.source === 'sun' ? 1.5 : 1;
 
   // ---------- subject ----------
   const S: Partial<Record<Subject, number>> = {};
@@ -91,11 +92,11 @@ export function readScene(img: WorkImage, st: Stats, v: VisionResult, exif: Exif
   const addL = (k: Lighting, x: number) => { L[k] = (L[k] ?? 0) + x; };
   const key = st.key;
   const warm = st.cct < 4300, veryWarm = st.cct < 3500, cool = st.cct > 7200;
-  addL('night', (key < 0.03 && st.darkFrac > 0.3 ? 1.4 : key < 0.06 && st.darkFrac > 0.25 ? 0.6 : 0) + (st.sky.kind === 'night' ? 0.5 : 0) + Math.min(0.8, st.pointLights * 0.06) + (tod.phase === 'night' ? 0.9 : 0));
-  addL('blue-hour', (st.sky.kind === 'dusk' ? 0.9 : 0) + (cool && key < 0.15 ? 0.5 : 0) + (tod.phase === 'blue-hour' ? 1 : 0));
-  addL('golden-hour', (st.sky.kind === 'sunset' ? 1.1 : 0) + (warm && st.sky.kind !== 'none' ? 0.6 : 0) + (warm && key > 0.05 && st.hueMass.orange + st.hueMass.yellow > 0.25 ? 0.4 : 0) + (tod.phase === 'golden-hour' ? 0.9 : 0));
+  addL('night', (key < 0.03 && st.darkFrac > 0.3 ? 1.4 : key < 0.06 && st.darkFrac > 0.25 ? 0.6 : 0) + (st.sky.kind === 'night' ? 0.5 : 0) + Math.min(0.8, st.pointLights * 0.06) + (tod.phase === 'night' ? 0.9 * sunW : 0));
+  addL('blue-hour', (st.sky.kind === 'dusk' ? 0.9 : 0) + (cool && key < 0.15 ? 0.5 : 0) + (tod.phase === 'blue-hour' ? 1 * sunW : 0));
+  addL('golden-hour', (st.sky.kind === 'sunset' ? 1.1 : 0) + (warm && st.sky.kind !== 'none' ? 0.6 : 0) + (warm && key > 0.05 && st.hueMass.orange + st.hueMass.yellow > 0.25 ? 0.4 : 0) + (tod.phase === 'golden-hour' ? 0.9 * sunW : 0));
   addL('tungsten', (veryWarm && st.sky.kind === 'none' && st.wbReliability > 0.3 ? 1.0 : 0) + (warm && st.sky.kind === 'none' && key < 0.15 ? 0.4 : 0) + (S.interior ?? 0) * 0.3);
-  addL('fluorescent', st.tint > 0.07 && st.wbReliability > 0.4 ? 0.8 + st.tint * 4 : 0);
+  addL('fluorescent', st.tint > 0.07 && st.wbReliability > 0.4 && st.hueMass.green + st.hueMass.yellow < 0.18 && st.sky.kind === 'none' ? 0.6 + st.tint * 3 : 0);
   addL('overcast', (st.sky.kind === 'overcast' ? 1 : 0) + (st.contrast < 1.5 && st.cct > 5800 && key > 0.08 ? 0.5 : 0));
   addL('harsh-sun', (st.contrast > 2.2 && key > 0.1 ? 0.6 : 0) + (st.sky.kind === 'blue' ? 0.4 : 0) + (st.clipHigh > 0.02 ? 0.3 : 0) + (tod.phase === 'day' ? 0.2 : 0));
   addL('daylight', 0.55 + (st.sky.kind === 'blue' ? 0.3 : 0) + (tod.phase === 'day' ? 0.3 : 0));

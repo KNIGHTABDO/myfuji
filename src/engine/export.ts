@@ -157,7 +157,7 @@ export function composePrint(pixels: ImageData, p: DevelopParams, e: ExifInfo, o
       g.strokeStyle = 'rgba(0,0,0,0.12)'; g.lineWidth = Math.max(1, long * 0.001);
       g.strokeRect(sideB, top, iw, ih);
       g.fillStyle = '#3a3530';
-      g.font = `${Math.round(bottom * 0.28)}px Caveat, cursive`;
+      g.font = `${Math.round(Math.min(bottom * 0.2, iw * 0.055))}px Caveat, cursive`;
       g.textBaseline = 'middle';
       const d = e.taken ?? new Date();
       g.fillText(`${d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })} · ${sim.name.toLowerCase()}`, sideB * 1.1, top + ih + bottom * 0.52);
