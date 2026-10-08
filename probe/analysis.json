@@ -1,0 +1,932 @@
+{
+  "image": "test-forest.jpg",
+  "loaded": {
+    "id": "ca7abe41-75da-449a-945b-c80b9808aa82",
+    "name": "test-forest.jpg",
+    "w": 1284,
+    "h": 708,
+    "origW": 1284,
+    "origH": 708,
+    "kind": "jpeg",
+    "notes": []
+  },
+  "file": {
+    "name": "test-forest.jpg",
+    "w": 1284,
+    "h": 708,
+    "origW": 1284,
+    "origH": 708,
+    "kind": "jpeg",
+    "notes": [],
+    "exif": {
+      "orientation": 1,
+      "width": 1284,
+      "height": 708,
+      "taken": "2026-10-08T14:02:03.000Z"
+    }
+  },
+  "stats": {
+    "cct": 5079.906696091549,
+    "tint": 0.433,
+    "illuminant": [
+      0.979,
+      1,
+      0.56
+    ],
+    "wbReliability": 0.85,
+    "drStops": 3.845,
+    "clipHigh": 0,
+    "clipLow": 0,
+    "key": 0.08,
+    "p": {
+      "p01": 0.027,
+      "p05": 0.031,
+      "p50": 0.071,
+      "p95": 0.273,
+      "p99": 0.385
+    },
+    "contrast": 0.97,
+    "colorfulness": 24.83,
+    "meanChroma": 0.04,
+    "hueMass": {
+      "red": 0,
+      "orange": 0,
+      "yellow": 0.394,
+      "green": 0.02,
+      "cyan": 0,
+      "blue": 0,
+      "purple": 0,
+      "magenta": 0
+    },
+    "sky": {
+      "fraction": 0,
+      "kind": "none",
+      "hex": "#595a4a"
+    },
+    "pointLights": 0,
+    "darkFrac": 0,
+    "noise": 0.645,
+    "sharpness": 170.455,
+    "topVsBottom": -0.438,
+    "palette": [
+      {
+        "hex": "#474833",
+        "share": 0.304,
+        "name": "dark muted olive"
+      },
+      {
+        "hex": "#36372c",
+        "share": 0.264,
+        "name": "slate grey"
+      },
+      {
+        "hex": "#5d5d3f",
+        "share": 0.201,
+        "name": "dark muted olive"
+      },
+      {
+        "hex": "#747642",
+        "share": 0.094,
+        "name": "olive"
+      },
+      {
+        "hex": "#807a5d",
+        "share": 0.072,
+        "name": "muted mustard"
+      },
+      {
+        "hex": "#9d9b67",
+        "share": 0.066,
+        "name": "olive"
+      }
+    ]
+  },
+  "vision": {
+    "available": true,
+    "error": null,
+    "faces": [],
+    "labels": [
+      {
+        "name": "lakeside",
+        "score": 0.086
+      },
+      {
+        "name": "worm fence",
+        "score": 0.051
+      },
+      {
+        "name": "park bench",
+        "score": 0.039
+      },
+      {
+        "name": "maze",
+        "score": 0.02
+      },
+      {
+        "name": "mountain tent",
+        "score": 0.016
+      },
+      {
+        "name": "mountain bike",
+        "score": 0.016
+      }
+    ],
+    "objects": [],
+    "segFractions": {
+      "background": 1
+    }
+  },
+  "scene": {
+    "subject": "general",
+    "subjectScores": [
+      [
+        "landscape",
+        0.258
+      ],
+      [
+        "architecture",
+        0.172
+      ],
+      [
+        "street",
+        0
+      ],
+      [
+        "food",
+        0
+      ]
+    ],
+    "lighting": "daylight",
+    "lightingScores": [
+      [
+        "daylight",
+        0.85
+      ],
+      [
+        "harsh-sun",
+        0.2
+      ],
+      [
+        "night",
+        0
+      ],
+      [
+        "blue-hour",
+        0
+      ],
+      [
+        "golden-hour",
+        0
+      ]
+    ],
+    "time": {
+      "phase": "day",
+      "source": "clock",
+      "hour": 15.033333333333333,
+      "inferred": "day"
+    },
+    "facts": [
+      "looks like: lakeside · worm fence",
+      "light ≈ 5100 K, green cast",
+      "3.8 stops of scene range"
+    ],
+    "story": "This reads as an everyday moment in clean daylight. The palette leans dark muted olive, slate grey, dark muted olive.",
+    "faceLum": null,
+    "backgroundLum": 0.071,
+    "subjectDeficit": 0,
+    "saliency": [
+      0.5,
+      0.5
+    ]
+  },
+  "rec": {
+    "picks": [
+      {
+        "sim": "provia",
+        "score": 0.75,
+        "reasons": []
+      },
+      {
+        "sim": "velvia",
+        "score": 0.65,
+        "reasons": []
+      },
+      {
+        "sim": "nostalgic-neg",
+        "score": 0.6,
+        "reasons": [
+          "rich warm colour to celebrate"
+        ]
+      },
+      {
+        "sim": "classic-chrome",
+        "score": 0.45,
+        "reasons": []
+      },
+      {
+        "sim": "reala-ace",
+        "score": 0.45,
+        "reasons": []
+      }
+    ],
+    "recipe": "Street 400",
+    "recipeWhy": "Matches daylight"
+  },
+  "params": {
+    "sim": "provia",
+    "intensity": 1,
+    "monoFilter": "ye",
+    "monoWC": 0,
+    "monoMG": 0,
+    "wbMode": "auto",
+    "wbKelvin": 5500,
+    "wbShiftR": 0,
+    "wbShiftB": 0,
+    "exposure": 0.3333333333333333,
+    "dr": "auto",
+    "highlight": 0.5,
+    "shadow": 1,
+    "color": 0,
+    "sharpness": 0,
+    "clarity": 0,
+    "grain": "weak",
+    "grainSize": "small",
+    "cce": "weak",
+    "cceBlue": "off",
+    "smartLight": 0.5,
+    "subjectLift": 0.5,
+    "skinProtect": false,
+    "vignette": 0.1,
+    "halation": 0,
+    "fade": 0,
+    "lightLeak": 0,
+    "leakSeed": 7,
+    "crop": "original",
+    "cropCenter": [
+      0.5,
+      0.5
+    ]
+  },
+  "auto": {
+    "sim": "provia",
+    "intensity": 1,
+    "monoFilter": "ye",
+    "monoWC": 0,
+    "monoMG": 0,
+    "wbMode": "auto",
+    "wbKelvin": 5500,
+    "wbShiftR": 0,
+    "wbShiftB": 0,
+    "exposure": 0.3333333333333333,
+    "dr": "auto",
+    "highlight": 0.5,
+    "shadow": 1,
+    "color": 0,
+    "sharpness": 0,
+    "clarity": 0,
+    "grain": "weak",
+    "grainSize": "small",
+    "cce": "weak",
+    "cceBlue": "off",
+    "smartLight": 0.5,
+    "subjectLift": 0.5,
+    "skinProtect": false,
+    "vignette": 0.1,
+    "halation": 0,
+    "fade": 0,
+    "lightLeak": 0,
+    "leakSeed": 7,
+    "crop": "original",
+    "cropCenter": [
+      0.5,
+      0.5
+    ]
+  },
+  "resolvedDR": 100,
+  "wbGains": [
+    1.034,
+    0.967,
+    1.23
+  ],
+  "uniforms": {
+    "wb": [
+      1.034,
+      0.967,
+      1.23
+    ],
+    "ev": 0.3333333333333333,
+    "compress": 0,
+    "shadowLift": 0.12,
+    "clarity": 0,
+    "subjectLift": 0,
+    "shoulder": [
+      0.9,
+      1.073
+    ],
+    "halation": 0,
+    "halTint": [
+      1,
+      0.26,
+      0.08
+    ],
+    "sharp": 0,
+    "intensity": 1,
+    "skin": false,
+    "grain": 0.026,
+    "grainSize": 1.2,
+    "grainChroma": 0.12,
+    "vignette": 0.1,
+    "leak": 0,
+    "leakSeed": 7,
+    "crop": [
+      0,
+      0,
+      1,
+      1
+    ]
+  },
+  "simParams": {
+    "provia": {
+      "sim": "provia",
+      "intensity": 1,
+      "monoFilter": "ye",
+      "monoWC": 0,
+      "monoMG": 0,
+      "wbMode": "auto",
+      "wbKelvin": 5500,
+      "wbShiftR": 0,
+      "wbShiftB": 0,
+      "exposure": 0.3333333333333333,
+      "dr": "auto",
+      "highlight": 0.5,
+      "shadow": 1,
+      "color": 0,
+      "sharpness": 0,
+      "clarity": 0,
+      "grain": "weak",
+      "grainSize": "small",
+      "cce": "weak",
+      "cceBlue": "off",
+      "smartLight": 0.5,
+      "subjectLift": 0.5,
+      "skinProtect": false,
+      "vignette": 0.1,
+      "halation": 0,
+      "fade": 0,
+      "lightLeak": 0,
+      "leakSeed": 7,
+      "crop": "original",
+      "cropCenter": [
+        0.5,
+        0.5
+      ]
+    },
+    "velvia": {
+      "sim": "velvia",
+      "intensity": 1,
+      "monoFilter": "ye",
+      "monoWC": 0,
+      "monoMG": 0,
+      "wbMode": "auto",
+      "wbKelvin": 5500,
+      "wbShiftR": 0,
+      "wbShiftB": 0,
+      "exposure": 0.3333333333333333,
+      "dr": "auto",
+      "highlight": 0.5,
+      "shadow": 1,
+      "color": 0,
+      "sharpness": 0,
+      "clarity": 0,
+      "grain": "weak",
+      "grainSize": "small",
+      "cce": "weak",
+      "cceBlue": "off",
+      "smartLight": 0.5,
+      "subjectLift": 0.5,
+      "skinProtect": false,
+      "vignette": 0.1,
+      "halation": 0,
+      "fade": 0,
+      "lightLeak": 0,
+      "leakSeed": 7,
+      "crop": "original",
+      "cropCenter": [
+        0.5,
+        0.5
+      ]
+    },
+    "astia": {
+      "sim": "astia",
+      "intensity": 1,
+      "monoFilter": "ye",
+      "monoWC": 0,
+      "monoMG": 0,
+      "wbMode": "auto",
+      "wbKelvin": 5500,
+      "wbShiftR": 0,
+      "wbShiftB": 0,
+      "exposure": 0.3333333333333333,
+      "dr": "auto",
+      "highlight": 0.5,
+      "shadow": 1,
+      "color": 0,
+      "sharpness": 0,
+      "clarity": 0,
+      "grain": "weak",
+      "grainSize": "small",
+      "cce": "weak",
+      "cceBlue": "off",
+      "smartLight": 0.5,
+      "subjectLift": 0.5,
+      "skinProtect": false,
+      "vignette": 0.1,
+      "halation": 0,
+      "fade": 0,
+      "lightLeak": 0,
+      "leakSeed": 7,
+      "crop": "original",
+      "cropCenter": [
+        0.5,
+        0.5
+      ]
+    },
+    "classic-chrome": {
+      "sim": "classic-chrome",
+      "intensity": 1,
+      "monoFilter": "ye",
+      "monoWC": 0,
+      "monoMG": 0,
+      "wbMode": "auto",
+      "wbKelvin": 5500,
+      "wbShiftR": 0,
+      "wbShiftB": 0,
+      "exposure": 0.3333333333333333,
+      "dr": "auto",
+      "highlight": 0.5,
+      "shadow": 1,
+      "color": 1,
+      "sharpness": 0,
+      "clarity": 0,
+      "grain": "weak",
+      "grainSize": "small",
+      "cce": "weak",
+      "cceBlue": "off",
+      "smartLight": 0.5,
+      "subjectLift": 0.5,
+      "skinProtect": false,
+      "vignette": 0.1,
+      "halation": 0,
+      "fade": 0,
+      "lightLeak": 0,
+      "leakSeed": 7,
+      "crop": "original",
+      "cropCenter": [
+        0.5,
+        0.5
+      ]
+    },
+    "reala-ace": {
+      "sim": "reala-ace",
+      "intensity": 1,
+      "monoFilter": "ye",
+      "monoWC": 0,
+      "monoMG": 0,
+      "wbMode": "auto",
+      "wbKelvin": 5500,
+      "wbShiftR": 0,
+      "wbShiftB": 0,
+      "exposure": 0.3333333333333333,
+      "dr": "auto",
+      "highlight": 0.5,
+      "shadow": 1,
+      "color": 0,
+      "sharpness": 0,
+      "clarity": 0,
+      "grain": "weak",
+      "grainSize": "small",
+      "cce": "weak",
+      "cceBlue": "off",
+      "smartLight": 0.5,
+      "subjectLift": 0.5,
+      "skinProtect": false,
+      "vignette": 0.1,
+      "halation": 0,
+      "fade": 0,
+      "lightLeak": 0,
+      "leakSeed": 7,
+      "crop": "original",
+      "cropCenter": [
+        0.5,
+        0.5
+      ]
+    },
+    "pro-neg-hi": {
+      "sim": "pro-neg-hi",
+      "intensity": 1,
+      "monoFilter": "ye",
+      "monoWC": 0,
+      "monoMG": 0,
+      "wbMode": "auto",
+      "wbKelvin": 5500,
+      "wbShiftR": 0,
+      "wbShiftB": 0,
+      "exposure": 0.3333333333333333,
+      "dr": "auto",
+      "highlight": 0.5,
+      "shadow": 1,
+      "color": 0,
+      "sharpness": 0,
+      "clarity": 0,
+      "grain": "weak",
+      "grainSize": "small",
+      "cce": "weak",
+      "cceBlue": "off",
+      "smartLight": 0.5,
+      "subjectLift": 0.5,
+      "skinProtect": false,
+      "vignette": 0.1,
+      "halation": 0,
+      "fade": 0,
+      "lightLeak": 0,
+      "leakSeed": 7,
+      "crop": "original",
+      "cropCenter": [
+        0.5,
+        0.5
+      ]
+    },
+    "pro-neg-std": {
+      "sim": "pro-neg-std",
+      "intensity": 1,
+      "monoFilter": "ye",
+      "monoWC": 0,
+      "monoMG": 0,
+      "wbMode": "auto",
+      "wbKelvin": 5500,
+      "wbShiftR": 0,
+      "wbShiftB": 0,
+      "exposure": 0.3333333333333333,
+      "dr": "auto",
+      "highlight": 0.5,
+      "shadow": 1.5,
+      "color": 0,
+      "sharpness": 0,
+      "clarity": 0,
+      "grain": "weak",
+      "grainSize": "small",
+      "cce": "weak",
+      "cceBlue": "off",
+      "smartLight": 0.5,
+      "subjectLift": 0.5,
+      "skinProtect": false,
+      "vignette": 0.1,
+      "halation": 0,
+      "fade": 0,
+      "lightLeak": 0,
+      "leakSeed": 7,
+      "crop": "original",
+      "cropCenter": [
+        0.5,
+        0.5
+      ]
+    },
+    "classic-neg": {
+      "sim": "classic-neg",
+      "intensity": 1,
+      "monoFilter": "ye",
+      "monoWC": 0,
+      "monoMG": 0,
+      "wbMode": "auto",
+      "wbKelvin": 5500,
+      "wbShiftR": 0,
+      "wbShiftB": 0,
+      "exposure": 0.3333333333333333,
+      "dr": "auto",
+      "highlight": 0.5,
+      "shadow": 1,
+      "color": 0,
+      "sharpness": 0,
+      "clarity": 0,
+      "grain": "weak",
+      "grainSize": "small",
+      "cce": "weak",
+      "cceBlue": "off",
+      "smartLight": 0.5,
+      "subjectLift": 0.5,
+      "skinProtect": false,
+      "vignette": 0.1,
+      "halation": 0,
+      "fade": 0,
+      "lightLeak": 0,
+      "leakSeed": 7,
+      "crop": "original",
+      "cropCenter": [
+        0.5,
+        0.5
+      ]
+    },
+    "nostalgic-neg": {
+      "sim": "nostalgic-neg",
+      "intensity": 1,
+      "monoFilter": "ye",
+      "monoWC": 0,
+      "monoMG": 0,
+      "wbMode": "auto",
+      "wbKelvin": 5500,
+      "wbShiftR": 0,
+      "wbShiftB": 0,
+      "exposure": 0.3333333333333333,
+      "dr": "auto",
+      "highlight": 0.5,
+      "shadow": 1,
+      "color": 0,
+      "sharpness": 0,
+      "clarity": 0,
+      "grain": "weak",
+      "grainSize": "small",
+      "cce": "weak",
+      "cceBlue": "off",
+      "smartLight": 0.5,
+      "subjectLift": 0.5,
+      "skinProtect": false,
+      "vignette": 0.1,
+      "halation": 0,
+      "fade": 0,
+      "lightLeak": 0,
+      "leakSeed": 7,
+      "crop": "original",
+      "cropCenter": [
+        0.5,
+        0.5
+      ]
+    },
+    "eterna": {
+      "sim": "eterna",
+      "intensity": 1,
+      "monoFilter": "ye",
+      "monoWC": 0,
+      "monoMG": 0,
+      "wbMode": "auto",
+      "wbKelvin": 5500,
+      "wbShiftR": 0,
+      "wbShiftB": 0,
+      "exposure": 0.3333333333333333,
+      "dr": "auto",
+      "highlight": 0.5,
+      "shadow": 1.5,
+      "color": 0,
+      "sharpness": 0,
+      "clarity": 0,
+      "grain": "weak",
+      "grainSize": "small",
+      "cce": "weak",
+      "cceBlue": "off",
+      "smartLight": 0.5,
+      "subjectLift": 0.5,
+      "skinProtect": false,
+      "vignette": 0.1,
+      "halation": 0,
+      "fade": 0,
+      "lightLeak": 0,
+      "leakSeed": 7,
+      "crop": "original",
+      "cropCenter": [
+        0.5,
+        0.5
+      ]
+    },
+    "eterna-bb": {
+      "sim": "eterna-bb",
+      "intensity": 1,
+      "monoFilter": "ye",
+      "monoWC": 0,
+      "monoMG": 0,
+      "wbMode": "auto",
+      "wbKelvin": 5500,
+      "wbShiftR": 0,
+      "wbShiftB": 0,
+      "exposure": 0.3333333333333333,
+      "dr": "auto",
+      "highlight": 0.5,
+      "shadow": 1,
+      "color": 0,
+      "sharpness": 0,
+      "clarity": 0,
+      "grain": "weak",
+      "grainSize": "small",
+      "cce": "weak",
+      "cceBlue": "off",
+      "smartLight": 0.5,
+      "subjectLift": 0.5,
+      "skinProtect": false,
+      "vignette": 0.1,
+      "halation": 0,
+      "fade": 0,
+      "lightLeak": 0,
+      "leakSeed": 7,
+      "crop": "original",
+      "cropCenter": [
+        0.5,
+        0.5
+      ]
+    },
+    "acros": {
+      "sim": "acros",
+      "intensity": 1,
+      "monoFilter": "ye",
+      "monoWC": 0,
+      "monoMG": 0,
+      "wbMode": "auto",
+      "wbKelvin": 5500,
+      "wbShiftR": 0,
+      "wbShiftB": 0,
+      "exposure": 0.3333333333333333,
+      "dr": "auto",
+      "highlight": 0.5,
+      "shadow": 1,
+      "color": 0,
+      "sharpness": 0,
+      "clarity": 0,
+      "grain": "weak",
+      "grainSize": "small",
+      "cce": "off",
+      "cceBlue": "off",
+      "smartLight": 0.5,
+      "subjectLift": 0.5,
+      "skinProtect": false,
+      "vignette": 0.1,
+      "halation": 0,
+      "fade": 0,
+      "lightLeak": 0,
+      "leakSeed": 7,
+      "crop": "original",
+      "cropCenter": [
+        0.5,
+        0.5
+      ]
+    },
+    "mono": {
+      "sim": "mono",
+      "intensity": 1,
+      "monoFilter": "ye",
+      "monoWC": 0,
+      "monoMG": 0,
+      "wbMode": "auto",
+      "wbKelvin": 5500,
+      "wbShiftR": 0,
+      "wbShiftB": 0,
+      "exposure": 0.3333333333333333,
+      "dr": "auto",
+      "highlight": 0.5,
+      "shadow": 1,
+      "color": 0,
+      "sharpness": 0,
+      "clarity": 0,
+      "grain": "weak",
+      "grainSize": "small",
+      "cce": "off",
+      "cceBlue": "off",
+      "smartLight": 0.5,
+      "subjectLift": 0.5,
+      "skinProtect": false,
+      "vignette": 0.1,
+      "halation": 0,
+      "fade": 0,
+      "lightLeak": 0,
+      "leakSeed": 7,
+      "crop": "original",
+      "cropCenter": [
+        0.5,
+        0.5
+      ]
+    },
+    "sepia": {
+      "sim": "sepia",
+      "intensity": 1,
+      "monoFilter": "ye",
+      "monoWC": 0,
+      "monoMG": 0,
+      "wbMode": "auto",
+      "wbKelvin": 5500,
+      "wbShiftR": 0,
+      "wbShiftB": 0,
+      "exposure": 0.3333333333333333,
+      "dr": "auto",
+      "highlight": 0.5,
+      "shadow": 1,
+      "color": 0,
+      "sharpness": 0,
+      "clarity": 0,
+      "grain": "weak",
+      "grainSize": "small",
+      "cce": "off",
+      "cceBlue": "off",
+      "smartLight": 0.5,
+      "subjectLift": 0.5,
+      "skinProtect": false,
+      "vignette": 0.1,
+      "halation": 0,
+      "fade": 0,
+      "lightLeak": 0,
+      "leakSeed": 7,
+      "crop": "original",
+      "cropCenter": [
+        0.5,
+        0.5
+      ]
+    }
+  },
+  "renders": [
+    {
+      "file": "auto.png",
+      "bytes": 2221840,
+      "ms": 2735
+    },
+    {
+      "file": "provia.png",
+      "bytes": 2221840,
+      "ms": 1067
+    },
+    {
+      "file": "velvia.png",
+      "bytes": 2262944,
+      "ms": 2600
+    },
+    {
+      "file": "astia.png",
+      "bytes": 2215706,
+      "ms": 2279
+    },
+    {
+      "file": "classic-chrome.png",
+      "bytes": 2169231,
+      "ms": 2203
+    },
+    {
+      "file": "reala-ace.png",
+      "bytes": 2218479,
+      "ms": 2360
+    },
+    {
+      "file": "pro-neg-hi.png",
+      "bytes": 2206378,
+      "ms": 2275
+    },
+    {
+      "file": "pro-neg-std.png",
+      "bytes": 2183682,
+      "ms": 2320
+    },
+    {
+      "file": "classic-neg.png",
+      "bytes": 2211265,
+      "ms": 2352
+    },
+    {
+      "file": "nostalgic-neg.png",
+      "bytes": 2214291,
+      "ms": 2260
+    },
+    {
+      "file": "eterna.png",
+      "bytes": 2137653,
+      "ms": 2177
+    },
+    {
+      "file": "eterna-bb.png",
+      "bytes": 2149591,
+      "ms": 2087
+    },
+    {
+      "file": "acros.png",
+      "bytes": 1152580,
+      "ms": 1635
+    },
+    {
+      "file": "mono.png",
+      "bytes": 1145242,
+      "ms": 1590
+    },
+    {
+      "file": "sepia.png",
+      "bytes": 1969088,
+      "ms": 1875
+    },
+    {
+      "file": "control-prefilm.png",
+      "bytes": 2187347,
+      "ms": 2528
+    },
+    {
+      "file": "control-neutral.png",
+      "bytes": 1611140,
+      "ms": 2397
+    },
+    {
+      "file": "ablate-wb-asshot.png",
+      "bytes": 2210803,
+      "ms": 1153
+    }
+  ]
+}

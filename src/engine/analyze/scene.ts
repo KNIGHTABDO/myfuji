@@ -23,6 +23,14 @@ export interface Scene {
   /** stops the subject sits below where it should */
   subjectDeficit: number;
   saliency: [number, number];
+  /** 0..1 soft score: how strongly the frame is lit by warm low sun / warm light (golden hour, sunset, tungsten mood). */
+  warmLight: number;
+  /** 0..1 soft score: light coming from behind the subject / through foliage toward the camera. */
+  backlight: number;
+  /** where the pixels came from: a camera file, a screenshot / video frame, or an already-edited image. */
+  inputKind: 'camera' | 'screenshot' | 'graded' | 'unknown';
+  /** 0..1: how much to restrain every automatic move (1 = barely touch). Screenshots/graded inputs score high. */
+  gentle: number;
 }
 
 const LABELS: Record<string, string[]> = {
@@ -154,5 +162,5 @@ export function readScene(img: WorkImage, st: Stats, v: VisionResult, exif: Exif
   const story = `This reads as ${subjectWords[subject]} in ${lightWords[lighting]}${tod.source === 'sun' ? ` (the sun was ${tod.sunElevation!.toFixed(0)}° ${tod.sunElevation! >= 0 ? 'above' : 'below'} the horizon)` : ''}. The palette leans ${palette}.`;
 
   const subjectDeficit = faceLum !== null ? Math.max(0, Math.log2(0.28 / Math.max(faceLum, 1e-4))) : 0;
-  return { subject, subjectScores, lighting, lightingScores, time: { ...tod, inferred }, facts, story, faceLum, backgroundLum, subjectDeficit, saliency: sal };
+  return { subject, subjectScores, lighting, lightingScores, time: { ...tod, inferred }, facts, story, faceLum, backgroundLum, subjectDeficit, saliency: sal, warmLight: 0, backlight: 0, inputKind: 'unknown', gentle: 0 };
 }
