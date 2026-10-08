@@ -15,14 +15,20 @@ const KEEP: Record<string, number> = {
 export function wbGains(p: DevelopParams, st: Stats | null, sc: Scene | null): RGB {
   let g: RGB = [1, 1, 1];
   const rel = (k: number): RGB => { const a = illuminantRGB(5500), b = illuminantRGB(k); return [a[0] / b[0], 1, a[2] / b[2]]; };
+  const warm = sc?.warmLight ?? 0, gentle = sc?.gentle ?? 0;
   if (p.wbMode === 'auto' || p.wbMode === 'auto-white' || p.wbMode === 'auto-ambience') {
     if (st) {
       let keep = sc ? KEEP[sc.lighting] ?? 0.4 : 0.4;
       if (p.wbMode === 'auto-white') keep = 0.05;
       if (p.wbMode === 'auto-ambience') keep = Math.min(1, keep + 0.3);
-      // The camera already balanced this file: only nudge, never overturn it.
-      const k = (1 - keep) * (p.wbMode === 'auto-white' ? 0.9 : 0.65);
-      g = st.illuminant.map((c) => Math.min(1.2, Math.max(0.84, Math.pow(c, -k)))) as RGB;
+      // Warm light is part of the picture: keep at least 75% of its cast, in proportion to warmLight.
+      // AUTO W asks for a neutral result, so it is left alone.
+      if (p.wbMode !== 'auto-white') keep += (Math.max(keep, 0.75) - keep) * warm;
+      // The camera already balanced this file: only nudge, never overturn it. Gentle scenes take even less.
+      const k = (1 - keep) * (p.wbMode === 'auto-white' ? 0.9 : 0.65) * (1 - 0.5 * gentle);
+      // Gentle scenes also keep a tighter gain range.
+      const [lo, hi] = gentle >= 0.4 ? [0.9, 1.1] : [0.84, 1.2];
+      g = st.illuminant.map((c) => Math.min(hi, Math.max(lo, Math.pow(c, -k)))) as RGB;
       // Green/magenta casts are almost never wanted.
       g[1] *= Math.pow(2, -Math.max(-0.3, Math.min(0.3, st.tint)) * keep * 0.8);
     }
@@ -41,6 +47,29 @@ export function resolveDR(p: DevelopParams, st: Stats | null): 100 | 200 | 400 {
   if (st.drStops > 9.5 || st.clipHigh > 0.02) return 400;
   if (st.drStops > 7.5 || st.clipHigh > 0.005) return 200;
   return 100;
+}
+
+/**
+ * Highlight headroom per DR mode: the input level that the shoulder maps to white is
+ * base + slope * (2^EV - 1), so it grows with exposure as before and DR200/400 get a fixed margin.
+ */
+const HEADROOM: Record<100 | 200 | 400, { base: number; slope: number }> = {
+  100: { base: 1, slope: 0.25 },
+  200: { base: 1.25, slope: 0.7 },
+  400: { base: 1.5, slope: 1 },
+};
+
+/**
+ * Knee of the shoulder T(L) = 1 - (1-k) exp(-(L-k)/(1-k)) (C1 at k, slope 1 below it), solved so that
+ * T(white) = 1 - eps. The asymptote is 1, so the curve never reaches 1 at a finite input; eps sets how
+ * close white gets (0.002 is about 0.5 of an 8-bit level).
+ */
+export function shoulderKnee(white: number, eps = 0.002): number {
+  const f = (k: number) => white - k - (1 - k) * Math.log((1 - k) / eps);
+  let lo = 0.05, hi = 1 - eps * 1.01;
+  if (f(lo) >= 0) return lo;
+  for (let i = 0; i < 50; i++) { const m = (lo + hi) / 2; if (f(m) > 0) hi = m; else lo = m; }
+  return (lo + hi) / 2;
 }
 
 const ASPECT: Record<CropId, number | null> = { original: null, '3:2': 3 / 2, '4:3': 4 / 3, '4:5': 4 / 5, '1:1': 1, '16:9': 16 / 9, '65:24': 65 / 24 };
@@ -62,17 +91,19 @@ export function cropRect(crop: CropId, center: [number, number], w: number, h: n
 export function uniformsFor(p: DevelopParams, st: Stats | null, sc: Scene | null, size: { w: number; h: number }, hasSubjectMask: boolean): RenderUniforms {
   const dr = resolveDR(p, st);
   const ev = p.exposure;
-  const drs = st ? st.drStops : 7;
+  const drs = st ? st.drStops : 5.5;
   const autoCompress = Math.min(1, Math.max(0, (drs - 5.5) / 6)) * 0.32 + (dr === 400 ? 0.08 : dr === 200 ? 0.04 : 0);
   const compress = Math.min(0.6, autoCompress * p.smartLight * 2);
   const night = sc?.lighting === 'night' || sc?.lighting === 'neon';
   const shadowLift = p.smartLight * 2 * (night ? 0.05 : 0.12);
   const autoLift = sc ? Math.min(1.6, Math.max(0, sc.subjectDeficit - Math.max(ev, 0))) * 0.8 : 0;
   const maxV = Math.pow(2, Math.max(ev, 0)) * (1 + shadowLift * 0.2);
-  const knee = dr === 400 ? 0.55 : dr === 200 ? 0.72 : 0.9;
-  const white = dr === 400 ? maxV : dr === 200 ? 1 + 0.7 * (maxV - 1) : 1 + 0.25 * (maxV - 1);
+  const hr = HEADROOM[dr];
+  const white = hr.base + hr.slope * (maxV - 1);
+  const knee = shoulderKnee(white);
   const mono = p.sim === 'acros' || p.sim === 'mono' || p.sim === 'sepia';
   const s = Math.max(1, Math.max(size.w, size.h) / 3500);
+  const gentle = sc?.gentle ?? 0;
   return {
     wb: wbGains(p, st, sc),
     ev,
@@ -80,7 +111,7 @@ export function uniformsFor(p: DevelopParams, st: Stats | null, sc: Scene | null
     shadowLift,
     clarity: p.clarity * 0.12,
     subjectLift: autoLift * p.subjectLift * 2,
-    shoulder: [knee, Math.max(white, knee + 0.05)],
+    shoulder: [knee, white],
     halation: p.halation * 0.9,
     halTint: [1.0, 0.26, 0.08],
     sharp: p.sharpness * 0.22,
@@ -93,5 +124,8 @@ export function uniformsFor(p: DevelopParams, st: Stats | null, sc: Scene | null
     leak: p.lightLeak,
     leakSeed: p.leakSeed,
     crop: cropRect(p.crop, p.cropCenter, size.w, size.h),
+    regionAmt: p.regions * (1 - 0.5 * gentle),
+    warm: sc?.warmLight ?? 0,
+    back: sc?.backlight ?? 0,
   };
 }

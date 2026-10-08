@@ -1,4 +1,4 @@
-import { clamp, linToOklab, linToSrgb, luma, monotoneCurve, okHue, oklabToLin, smoothstep, srgbToLin, toHalf } from '../color';
+import { clamp, linToOklab, linToSrgb, luma, monotoneCurve, okHue, oklabToLin, smoothstep, srgbToLin, toHalf, type RGB } from '../color';
 import { SIM_BY_ID, type SimDef } from './sims';
 import type { DevelopParams } from './types';
 
@@ -38,22 +38,61 @@ export function toneCurve(sim: SimDef, p: LutParams, skinSafe: boolean): (x: num
   };
 }
 
+/**
+ * Periodic monotone cubic over hue (degrees). The control points are repeated one turn
+ * either side, so the curve is C1 with no seam at 0/360 and no overshoot between control hues.
+ */
+function hueCurve(pts: Array<[number, number]>): (h: number) => number {
+  const s = [...pts].sort((a, b) => a[0] - b[0]);
+  const ext: Array<[number, number]> = [];
+  for (let k = -1; k <= 1; k++) for (const [x, y] of s) ext.push([x + 360 * k, y]);
+  const f = monotoneCurve(ext);
+  return (h: number) => f(((h % 360) + 360) % 360);
+}
+
+/** Hue-selective edits (hue shift deg, saturation ×, lightness shift) as smooth functions of OKLab hue. */
 function hueEdits(sim: SimDef) {
-  const pts = [...sim.hue].sort((a, b) => a[0] - b[0]);
-  return (h: number): [number, number, number] => {
-    const n = pts.length;
-    for (let i = 0; i < n; i++) {
-      const a = pts[i], b = pts[(i + 1) % n];
-      const ha = a[0], hb = i + 1 < n ? b[0] : b[0] + 360;
-      let hh = h;
-      if (hh < pts[0][0]) hh += 360;
-      if (hh >= ha && hh <= hb) {
-        const t = (hh - ha) / (hb - ha), s = 0.5 - 0.5 * Math.cos(Math.PI * t);
-        return [a[1] + (b[1] - a[1]) * s, a[2] + (b[2] - a[2]) * s, a[3] + (b[3] - a[3]) * s];
-      }
-    }
-    return [0, 1, 0];
-  };
+  const fH = hueCurve(sim.hue.map(([h, dh]): [number, number] => [h, dh]));
+  const fS = hueCurve(sim.hue.map(([h, , s]): [number, number] => [h, s]));
+  const fL = hueCurve(sim.hue.map(([h, , , dl]): [number, number] => [h, dl]));
+  return (h: number): [number, number, number] => [fH(h), fS(h), fL(h)];
+}
+
+/** Lightness above this rolls off smoothly towards 1 (no hard white clip). */
+const KNEE_L = 0.955;
+/** Fraction of the sRGB chroma limit where chroma starts to roll off. */
+const KNEE_C = 0.9;
+
+/** Largest OKLab chroma at a fixed lightness and hue that stays inside sRGB (binary search). */
+function maxChroma(L: number, cs: number, sn: number): number {
+  let lo = 0, hi = 0.5;
+  for (let it = 0; it < 16; it++) {
+    const m = (lo + hi) / 2;
+    const [r, g, b] = oklabToLin(L, m * cs, m * sn);
+    if (r >= 0 && g >= 0 && b >= 0 && r <= 1 && g <= 1 && b <= 1) lo = m; else hi = m;
+  }
+  return lo;
+}
+
+/**
+ * Final OKLab -> linear sRGB stage, shared by colour and mono paths.
+ * 1. Soft highlight roll-off in lightness.
+ * 2. Gamut mapping at constant L and hue: chroma is rolled off smoothly as it approaches the
+ *    sRGB boundary (C1 knee at KNEE_C of the limit, asymptote to the limit). The result is in
+ *    gamut by construction, so no channel is hard clipped and hue never breaks.
+ */
+function finish(L: number, A: number, B: number): RGB {
+  L = Math.max(0, L);
+  if (L > KNEE_L) L = KNEE_L + (1 - KNEE_L) * (1 - Math.exp(-(L - KNEE_L) / (1 - KNEE_L)));
+  const C = Math.hypot(A, B);
+  if (C <= 1e-7) return oklabToLin(L, 0, 0).map((v) => clamp(v)) as RGB;
+  const cs = A / C, sn = B / C;
+  const cm = maxChroma(L, cs, sn);
+  let c = C;
+  const k0 = KNEE_C * cm, room = cm - k0;
+  if (C > k0) c = room > 1e-7 ? k0 + room * (1 - Math.exp(-(C - k0) / room)) : 0;
+  const [r, g, b] = oklabToLin(L, c * cs, c * sn);
+  return [clamp(r), clamp(g), clamp(b)];
 }
 
 const STRENGTH = { off: 0, weak: 1, strong: 2 } as const;
@@ -93,7 +132,7 @@ export function buildLut(p: LutParams, size = 48, skinSafe = false): Uint16Array
           if (mono.tint) { A += mono.tint[0] * mid; Bb += mono.tint[1] * mid; }
           Bb += p.monoWC * 0.0036 * mid; A += p.monoWC * 0.0009 * mid;
           A += p.monoMG * 0.0036 * mid;
-          [R, G, B] = oklabToLin(L, A, Bb);
+          [R, G, B] = finish(L, A, Bb);
         } else {
           // Tone: blend a hue-preserving luminance curve with a per-channel curve.
           const Y = luma(r, g, b);
@@ -115,30 +154,18 @@ export function buildLut(p: LutParams, size = 48, skinSafe = false): Uint16Array
           if (sk > 0) satTotal = satTotal + (clamp(satTotal, 0.9, 1.08) - satTotal) * sk;
           let C2 = C * satTotal;
           if (C2 > 0.2) C2 = 0.2 + 0.13 * Math.tanh((C2 - 0.2) / 0.13);
-          let L = L0 + dL * smoothstep(0.02, 0.15, C);
+          // Lightness edits fade out in the deepest shadows so dense tones keep their detail.
+          let L = L0 + dL * smoothstep(0.02, 0.15, C) * (0.35 + 0.65 * smoothstep(0.08, 0.32, L0));
           L -= cce * (1 - sk) * smoothstep(0.07, 0.22, C2) * smoothstep(0.15, 0.45, L);
           L -= cceB * bell(h, 262, 32) * smoothstep(0.04, 0.18, C2) * smoothstep(0.15, 0.5, L);
           const sw = 1 - smoothstep(0.12, 0.6, L), hw = smoothstep(0.5, 0.96, L);
           const A = Math.cos(h2) * C2 + sim.splitShadow[0] * sw + sim.splitHighlight[0] * hw;
           const Bb = Math.sin(h2) * C2 + sim.splitShadow[1] * sw + sim.splitHighlight[1] * hw;
-          [R, G, B] = oklabToLin(L, A, Bb);
-          // Gamut map by reducing chroma at constant L and hue.
-          if (R < 0 || G < 0 || B < 0 || R > 1 || G > 1 || B > 1) {
-            if (L >= 1) { R = G = B = 1; }
-            else {
-              let lo = 0, hi = 1;
-              for (let it = 0; it < 9; it++) {
-                const s = (lo + hi) / 2;
-                const [r2, g2, b2] = oklabToLin(L, A * s, Bb * s);
-                if (r2 < 0 || g2 < 0 || b2 < 0 || r2 > 1 || g2 > 1 || b2 > 1) hi = s; else lo = s;
-              }
-              [R, G, B] = oklabToLin(L, A * lo, Bb * lo);
-            }
-          }
+          [R, G, B] = finish(L, A, Bb);
         }
-        out[o++] = toHalf(linToSrgb(clamp(R)));
-        out[o++] = toHalf(linToSrgb(clamp(G)));
-        out[o++] = toHalf(linToSrgb(clamp(B)));
+        out[o++] = toHalf(linToSrgb(R));
+        out[o++] = toHalf(linToSrgb(G));
+        out[o++] = toHalf(linToSrgb(B));
         out[o++] = 0x3c00;
       }
   return out;

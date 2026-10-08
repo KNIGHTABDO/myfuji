@@ -34,6 +34,12 @@ export interface Stats {
   noise: number;
   sharpness: number;
   topVsBottom: number;
+  /** The brightest 15% of pixels: how warm they are (linear R/B of the top 5%, warm-hued share, mean chroma). */
+  hi: { rb: number; warmFrac: number; chroma: number };
+  /** Share of pixels bright enough to read as light sources / sun gaps, and the share of those in the upper two-thirds. */
+  bright: { frac: number; upper: number };
+  /** Share of pixels well below the midtone (silhouettes, deep shadow). */
+  shadowFrac: number;
 }
 
 export function workImageFrom(data: ImageData): WorkImage {
@@ -155,7 +161,7 @@ export function computeStats(img: WorkImage, crop1to1: ImageData | null): Stats 
     chromaSum += C;
     if (C > 0.04) {
       const hh = okHue(a, bb);
-      const k = hh < 40 || hh >= 350 ? 'red' : hh < 75 ? 'orange' : hh < 120 ? 'yellow' : hh < 170 ? 'green' : hh < 225 ? 'cyan' : hh < 285 ? 'blue' : hh < 320 ? 'purple' : 'magenta';
+      const k = hh < 40 || hh >= 350 ? 'red' : hh < 72 ? 'orange' : hh < 100 ? 'yellow' : hh < 175 ? 'green' : hh < 225 ? 'cyan' : hh < 285 ? 'blue' : hh < 320 ? 'purple' : 'magenta';
       hueMass[k as keyof typeof hueMass]++;
     }
   }
@@ -234,9 +240,9 @@ export function computeStats(img: WorkImage, crop1to1: ImageData | null): Stats 
     const gm = Math.abs(Y[Math.min(n - 1, i + 1)] - Y[Math.max(0, i - 1)]) + Math.abs(Y[Math.min(n - 1, i + w)] - Y[Math.max(0, i - w)]);
     if (gm > 0.03 + Y[i] * 0.1) return 'none';
     const L = lab[i * 3], a = lab[i * 3 + 1], b = lab[i * 3 + 2], C = Math.hypot(a, b), hh = okHue(a, b);
-    if (L < 0.3 && C < 0.08) return 'night';
+    if (L < 0.3 && C < 0.08 && hh > 200 && hh < 300) return 'night';
     if (C > 0.02 && hh > 205 && hh < 290) return L > 0.58 ? 'blue' : L > 0.3 ? 'dusk' : 'night';
-    if (C > 0.035 && ((hh > 25 && hh < 110) || hh > 330) && L > 0.62) return 'sunset';
+    if (C > 0.035 && ((hh > 25 && hh < 80) || hh > 330) && L > 0.62) return 'sunset';
     if (C < 0.035 && L > 0.7) return 'overcast';
     return 'none';
   };
@@ -288,6 +294,24 @@ export function computeStats(img: WorkImage, crop1to1: ImageData | null): Stats 
   for (let y = 0; y < th; y++) for (let x = 0; x < w; x++) tS += Y[y * w + x];
   for (let y = h - th; y < h; y++) for (let x = 0; x < w; x++) bS += Y[y * w + x];
 
+  // ---- highlights and light gaps: warm sun shows in the brightest pixels, not in the canopy average ----
+  const p85 = sorted[Math.min(n - 1, Math.floor(0.85 * n))];
+  const brightT = Math.max(0.15, 0.6 * p.p99);
+  const shadowT = 0.5 * p.p50;
+  const upperEnd = Math.floor(h * 0.67) * w;
+  let hR = 0, hB = 0, hTopN = 0, hN = 0, hWarm = 0, hC = 0, brightN = 0, brightUpper = 0, shadowN = 0;
+  for (let i = 0; i < n; i++) {
+    const y = Y[i];
+    if (y < shadowT) shadowN++;
+    if (y >= brightT) { brightN++; if (i < upperEnd) brightUpper++; }
+    if (y >= p85 && y > 0.02) {
+      hN++;
+      const a = lab[i * 3 + 1], bb = lab[i * 3 + 2], C = Math.hypot(a, bb);
+      hC += C;
+      if (C > 0.04) { const hh = okHue(a, bb); if (hh >= 40 && hh < 100) hWarm++; }
+      if (y >= p.p95) { hR += lin[i * 3]; hB += lin[i * 3 + 2]; hTopN++; }
+    }
+  }
   const ns = crop1to1 ? noiseAndSharpness(crop1to1) : { noise: 0, sharpness: 0 };
   return {
     hist, key, p,
@@ -300,5 +324,8 @@ export function computeStats(img: WorkImage, crop1to1: ImageData | null): Stats 
     sky: { fraction: skyFraction, kind, hex: skyN ? hex(linToSrgb(sr / skyN), linToSrgb(sg / skyN), linToSrgb(sb / skyN)) : '#000000' },
     pointLights, darkFrac, noise: ns.noise, sharpness: ns.sharpness,
     topVsBottom: Math.log2((tS + 1e-3) / (bS + 1e-3)),
+    hi: { rb: hTopN && hB > 1e-6 ? hR / hB : 1, warmFrac: hN ? hWarm / hN : 0, chroma: hN ? hC / hN : 0 },
+    bright: { frac: brightN / n, upper: brightN ? brightUpper / brightN : 0 },
+    shadowFrac: shadowN / n,
   };
 }

@@ -5,3 +5,5 @@ public/mediapipe
 .DS_Store
 test-out
 dev/imgs
+batch
+probe-out

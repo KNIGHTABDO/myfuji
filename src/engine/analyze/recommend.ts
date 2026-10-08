@@ -1,6 +1,7 @@
+import { clamp } from '../color';
 import { RECIPES, type Recipe } from '../film/recipes';
 import { SIMS } from '../film/sims';
-import { DEFAULT_PARAMS, type DevelopParams, type SimId } from '../film/types';
+import { DEFAULT_PARAMS, type DevelopParams, type SimId, type Strength } from '../film/types';
 import type { ExifInfo } from '../exif';
 import type { Lighting, Scene, Subject } from './scene';
 import type { Stats } from './stats';
@@ -10,6 +11,29 @@ export interface Pick { sim: SimId; score: number; reasons: string[] }
 export interface Recommendation { picks: Pick[]; recipe: Recipe | null; recipeWhy: string }
 
 type Table = Partial<Record<SimId, [number, string?]>>;
+
+/** Sims that are never chosen automatically for colour input (monochrome, and bleach bypass). */
+const MONO_SIMS: SimId[] = ['acros', 'mono', 'sepia', 'eterna-bb'];
+
+/** Soft 0..1 smoothstep from lo to hi (either direction). */
+const ramp = (x: number, lo: number, hi: number) => {
+  const t = clamp((x - lo) / (hi - lo));
+  return t * t * (3 - 2 * t);
+};
+/** sRGB encoding of a linear value, for brightness checks in display terms. */
+const toSrgb = (x: number) => {
+  const c = clamp(x, 0, 1);
+  return c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+};
+const quarter = (x: number) => Math.round(x * 4) / 4 || 0;
+const twentieth = (x: number) => Math.round(x * 20) / 20 || 0;
+const half = (x: number) => Math.round(x * 2) / 2 || 0;
+
+/** Warm low light: these sims keep the sun's colour; cool or punchy ones fight it. Scaled by warmLight. */
+const WARM_MOOD: Table = {
+  'nostalgic-neg': [0.6, 'keeps the warm low sun'], 'classic-neg': [0.25, 'warm, punchy negatives'], 'pro-neg-std': [0.2, 'soft warm tonality'],
+  'reala-ace': [0.15], eterna: [0.1], astia: [0.1], provia: [-0.35, 'would cool the warm light'], 'classic-chrome': [-0.2], velvia: [-0.5],
+};
 
 const BASE: Record<SimId, number> = {
   provia: 0.5, 'reala-ace': 0.45, 'classic-chrome': 0.45, 'classic-neg': 0.45, astia: 0.35, 'pro-neg-hi': 0.35, 'nostalgic-neg': 0.35,
@@ -64,6 +88,7 @@ export function recommend(st: Stats, sc: Scene): Recommendation {
   if (sc.subjectScores[1] && sc.subjectScores[1][1] > 0.5) apply(BY_SUBJECT[sc.subjectScores[1][0]], 0.4);
   apply(BY_LIGHT[sc.lighting]);
   if (sc.lightingScores[1] && sc.lightingScores[1][1] > 0.7) apply(BY_LIGHT[sc.lightingScores[1][0]], 0.35);
+  apply(WARM_MOOD, sc.warmLight);
   const bump = (id: SimId, v: number, why?: string) => { const p = score.get(id)!; p.score += v; if (why) p.reasons.push(why); };
   if (st.colorfulness < 20) { bump('acros', 0.4, 'little colour to lose, lots of tone to gain'); bump('mono', 0.2); bump('classic-chrome', 0.15); }
   if (st.colorfulness > 65) { bump('classic-chrome', 0.2, 'tames very loud colour'); bump('eterna', 0.15); if (sc.subject !== 'nature' && sc.subject !== 'landscape') bump('velvia', -0.15); }
@@ -73,7 +98,10 @@ export function recommend(st: Stats, sc: Scene): Recommendation {
   if (st.sky.kind === 'blue') { bump('velvia', 0.2); bump('astia', 0.12); bump('acros', 0.1); }
   if (st.hueMass.orange > 0.25) bump('nostalgic-neg', 0.2, 'warm tones throughout');
   if (st.sky.kind === 'overcast' && st.contrast > 1.8) bump('eterna-bb', 0.2, 'dramatic sky for a bleach-bypass treatment');
-  const picks = [...score.values()].sort((a, b) => b.score - a.score);
+  // Colour input never gets a monochrome sim or bleach bypass automatically; near-grey input may.
+  const greyInput = st.colorfulness < 8;
+  const allowed = (id: SimId) => greyInput || !MONO_SIMS.includes(id);
+  const picks = [...score.values()].filter((p) => allowed(p.sim)).sort((a, b) => b.score - a.score);
   for (const p of picks) p.reasons = [...new Set(p.reasons)].slice(0, 3);
 
   const tags = new Set<string>([sc.subject, sc.lighting, sc.time.inferred]);
@@ -84,6 +112,7 @@ export function recommend(st: Stats, sc: Scene): Recommendation {
   if (sc.lighting === 'fluorescent') tags.add('mixed-light');
   let recipe: Recipe | null = null, best = 0;
   for (const r of RECIPES) {
+    if (r.params.sim && !allowed(r.params.sim)) continue;
     const hit = r.bestFor.filter((t) => tags.has(t)).length + (r.params.sim === picks[0].sim ? 0.5 : 0);
     if (hit > best) { best = hit; recipe = r; }
   }
@@ -94,6 +123,17 @@ export function recommend(st: Stats, sc: Scene): Recommendation {
 export function autoParams(sim: SimId, st: Stats, sc: Scene, v: VisionResult, exif: ExifInfo, base: DevelopParams = DEFAULT_PARAMS): DevelopParams {
   const p: DevelopParams = { ...base, sim };
   const isMono = sim === 'acros' || sim === 'mono' || sim === 'sepia';
+  const warm = sc.warmLight;
+  // Gentleness: the share of each automatic move that survives (screenshots and graded files get fewer moves).
+  const g = 1 - 0.6 * sc.gentle;
+  const meanS = toSrgb(st.key);
+  const moody = warm >= 0.5 || sc.backlight >= 0.5 || ['golden-hour', 'blue-hour', 'night', 'neon', 'low-key'].includes(sc.lighting);
+  // Genuinely dark frames may be lifted a lot; everything else gets a small, capped move. A frame is not underexposed
+  // when its highlights reach 0.45 sRGB or a face is lit (dark moody portraits with a lit face stay gentle).
+  const litFace = sc.faceLum !== null && toSrgb(sc.faceLum) >= 0.4;
+  const lit = toSrgb(st.p.p99) >= 0.45 || litFace;
+  const badlyExposed = !lit && (meanS < 0.12 || st.p.p99 < 0.6);
+
   // Exposure: aim the scene's key at a mood-appropriate grey.
   const target = sc.lighting === 'night' || sc.lighting === 'neon' ? 0.07 : sc.lighting === 'low-key' || sc.lighting === 'blue-hour' ? 0.09 : sc.lighting === 'high-key' || sc.subject === 'snow' ? 0.28 : 0.16;
   // Dark-toned subjects (a black suit, autumn shade) are not underexposure: stay gentle.
@@ -103,32 +143,64 @@ export function autoParams(sim: SimId, st: Stats, sc: Scene, v: VisionResult, ex
     const evFace = Math.log2(0.3 / Math.max(sc.faceLum, 1e-4)) * 0.55;
     ev = evFace * 0.75 + ev * 0.25;
   }
-  ev = Math.min(ev, 0.7);
+  // A mid-key frame with no faces is already where it should be.
+  if (sc.faceLum === null && st.key >= 0.12 && st.key <= 0.25) ev = 0;
+  // Golden, backlit and night light is the look: never brighten it, unless the people in a dim frame are clearly dark.
+  if (moody && !(sc.subjectDeficit > 0.6 && !lit)) ev = Math.min(ev, 0);
+  // Bright frames (p99 above 0.95 sRGB) are not lifted at all.
+  if (toSrgb(st.p.p99) > 0.95) ev = 0;
   if (st.p.p99 * Math.pow(2, ev) > 1.6) ev = Math.min(ev, Math.log2(1.6 / Math.max(st.p.p99, 1e-4)));
-  p.exposure = Math.round(Math.max(-1, Math.min(1.3, ev)) * 3) / 3;
+  // Moody and low-key scenes never get more than +0.33, whatever the face reading says.
+  const lo = badlyExposed ? -1 : -0.33;
+  const hi = moody ? 0.33 : badlyExposed ? 1.3 : 0.33;
+  ev = Math.max(lo, Math.min(hi, ev));
+  // Average brightness may move by at most about 0.04 sRGB unless the frame is badly exposed.
+  if (!badlyExposed) {
+    while (Math.abs(ev) > 0.01 && Math.abs(toSrgb(st.key * Math.pow(2, ev)) - meanS) > 0.04) ev -= Math.sign(ev) * 0.02;
+  }
+  p.exposure = twentieth(ev * g);
   p.dr = 'auto';
-  p.wbMode = 'auto';
+  // Warm light is kept as shot; the auto white balance would otherwise neutralise the sun.
+  p.wbMode = warm >= 0.5 ? 'as-shot' : 'auto';
   p.wbShiftR = 0; p.wbShiftB = 0;
-  // Tone
-  if (st.contrast > 2.4) { p.highlight = -1; p.shadow = -0.5; }
-  else if (st.contrast < 1.3) { p.highlight = 0.5; p.shadow = 1; }
-  else { p.highlight = 0; p.shadow = 0; }
-  if (sim === 'eterna' || sim === 'pro-neg-std') p.shadow += 0.5;
-  // Colour
-  p.color = st.colorfulness < 18 ? 1 : st.colorfulness > 70 ? -1 : 0;
-  if (sim === 'classic-chrome' && st.colorfulness < 35) p.color += 1;
+
+  // Tone: flat frames get a little contrast, very contrasty ones are eased. Warm light keeps its highlights and does not lift shadows.
+  const flat = ramp(st.contrast, 1.3, 0.9);
+  const punchy = ramp(st.contrast, 1.9, 2.6);
+  let H = 0.5 * flat - 1 * punchy;
+  let S = 1 * flat - 0.5 * punchy; // +S deepens shadows, -S lifts them
+  if (warm >= 0.5) { H = Math.min(H, 0); S = Math.max(S, 0) * 0.5; }
+  if (sim === 'eterna' || sim === 'pro-neg-std') S += 0.5 * (1 - warm);
+  p.highlight = quarter(H * g);
+  p.shadow = quarter(S * g);
+
+  // Colour: never boost an already saturated frame, never reduce warm light.
+  let color = st.colorfulness < 18 ? 1 : st.colorfulness > 70 ? -1 : 0;
+  if (sim === 'classic-chrome' && st.colorfulness < 35) color += 1;
+  if (st.colorfulness > 45) color = Math.min(color, 0);
+  if (warm >= 0.5 && color < 0) color = 0;
+  p.color = quarter(color * g);
+
+  // Small or compressed inputs (screenshots, graded files, phone-size images) get less grain and no added sharpening.
+  const edge = Math.max(exif.width ?? 0, exif.height ?? 0);
+  const small = (edge > 0 && edge <= 1600) || sc.inputKind === 'screenshot' || sc.inputKind === 'graded';
   // Grain follows the light: more and bigger when the light was poor.
   const lowLight = (exif.iso ?? 0) >= 1600 || st.noise > 3.2 || sc.lighting === 'night' || sc.lighting === 'neon';
   if (sim === 'acros') { p.grain = lowLight ? 'strong' : 'weak'; p.grainSize = 'small'; }
   else if (lowLight) { p.grain = 'strong'; p.grainSize = 'large'; }
   else if (sc.subject === 'landscape' || sc.subject === 'food' || sc.subject === 'nature') p.grain = 'off';
   else { p.grain = 'weak'; p.grainSize = 'small'; }
+  const order: Strength[] = ['off', 'weak', 'strong'];
+  const drop = small || sc.gentle >= 0.4 ? 1 : 0;
+  p.grain = order[Math.max(0, order.indexOf(p.grain) - drop)];
   // Colour chrome
   p.cce = isMono ? 'off' : st.colorfulness > 40 || st.hueMass.red + st.hueMass.orange > 0.2 ? 'strong' : 'weak';
   p.cceBlue = isMono ? 'off' : st.sky.kind === 'blue' || st.hueMass.blue > 0.12 ? (sim === 'velvia' || sc.subject === 'landscape' ? 'strong' : 'weak') : 'off';
   // Texture
   const tex: Partial<Record<Subject, [number, number]>> = { landscape: [2, 1], architecture: [2, 1], street: [1, 0], food: [1, 1], nature: [1, 1], portrait: [-1, -1], group: [0, 0], 'still-life': [1, 0] };
-  [p.clarity, p.sharpness] = tex[sc.subject] ?? [0, 0];
+  const [clar, sharp] = tex[sc.subject] ?? [0, 0];
+  p.clarity = half(clar * g);
+  p.sharpness = half((small ? Math.min(sharp, 0) : sharp) * g);
   p.halation = (sc.lighting === 'night' || sc.lighting === 'neon') && st.pointLights > 2 ? (sim === 'eterna' || sim === 'classic-neg' ? 0.4 : 0.2) : 0;
   p.vignette = sc.subject === 'portrait' ? 0.15 : sc.subject === 'street' || sc.subject === 'night-city' ? 0.2 : 0.1;
   p.monoFilter = st.sky.kind === 'blue' ? 'r' : st.hueMass.green > 0.25 ? 'g' : 'ye';

@@ -5,6 +5,7 @@ import { computeStats, workImageFrom, type Stats } from './analyze/stats';
 import { runVision, loadModels, type VisionResult } from './analyze/vision';
 import { readScene, type Scene } from './analyze/scene';
 import { autoParams, recommend, type Recommendation } from './analyze/recommend';
+import { computeRegions, type RegionMaps } from './regions';
 import type { DevelopParams } from './film/types';
 
 export interface Photo {
@@ -23,6 +24,8 @@ export interface Photo {
   work: WorkImage;
   aux: AuxCache;
   mask: Float32Array | null;
+  /** Sky / foliage / ground / sun weight maps on the work grid (see regions.ts). */
+  regions: RegionMaps;
   exif: ExifInfo;
   stats: Stats;
   vision: VisionResult;
@@ -87,6 +90,7 @@ export async function processFile(file: File, maxEdge: number, onProgress: Progr
 
   const aux = auxLayers(work);
   const mask = vision.subjectMask ? gaussBlur(vision.subjectMask, work.w, work.h, Math.max(2, Math.round(Math.max(work.w, work.h) * 0.006))) : null;
+  const regions = computeRegions(work, mask);
   const preview = await createImageBitmap(small);
   const tc = downscale(full, 360);
   const thumbBlob = await tc.convertToBlob({ type: 'image/jpeg', quality: 0.8 });
@@ -95,7 +99,7 @@ export async function processFile(file: File, maxEdge: number, onProgress: Progr
 
   return {
     id: crypto.randomUUID(), name: file.name, file, kind: decoded.kind, notes: decoded.notes,
-    full, preview, w, h, origW, origH, work, aux, mask, exif, stats, vision, scene, rec,
+    full, preview, w, h, origW, origH, work, aux, mask, regions, exif, stats, vision, scene, rec,
     params, auto: params, thumb, addedAt: Date.now(),
   };
 }

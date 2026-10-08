@@ -109,6 +109,7 @@ export function TunePanel() {
         <h3><span className="label">Lab extras</span></h3>
         <Slider label="Smart light" value={v.smartLight} min={0} max={1} step={0.05} onChange={(x) => set({ smartLight: x })} fmtV={(x) => `${Math.round(x * 100)}%`} hint="Adaptive local tone mapping. Holds skies and opens shadows." />
         <Slider label="Subject lift" value={v.subjectLift} min={0} max={1} step={0.05} onChange={(x) => set({ subjectLift: x })} fmtV={(x) => `${Math.round(x * 100)}%`} hint={p.scene.subjectDeficit > 0.2 ? `Faces sit ${p.scene.subjectDeficit.toFixed(1)} EV under. This brings them up without touching the sky.` : 'Brightens faces and people found by the models.'} />
+        <Slider label="Regions" value={v.regions} min={0} max={1.5} step={0.05} onChange={(x) => set({ regions: x })} fmtV={(x) => `${Math.round(x * 100)}%`} hint="Separate grades for sky, foliage and ground, in sun and shade. 0% is off." />
         {!mono && <Slider label="Film strength" value={v.intensity} min={0} max={1} step={0.05} onChange={(x) => set({ intensity: x })} fmtV={(x) => `${Math.round(x * 100)}%`} />}
         <Slider label="Halation" value={v.halation} min={0} max={1} step={0.05} onChange={(x) => set({ halation: x })} fmtV={(x) => `${Math.round(x * 100)}%`} hint="Red glow around highlights, as on film without an anti-halation layer." />
         <Slider label="Vignette" value={v.vignette} min={0} max={1} step={0.05} onChange={(x) => set({ vignette: x })} fmtV={(x) => `${Math.round(x * 100)}%`} />

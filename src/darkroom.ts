@@ -1,9 +1,9 @@
 // Glue between the app state and the GPU: owns the viewer's renderer, keeps
 // its textures and LUTs in sync with the active photo, and runs exports.
-import { packAux } from './engine/aux';
+import { auxLayers, packAux, packRegions, type AuxCache } from './engine/aux';
 import { cropRect, uniformsFor } from './engine/develop';
 import { canvasToBlob, composePrint, frameAspect, outputSize, type ExportOptions } from './engine/export';
-import { FilmRenderer } from './engine/gl/renderer';
+import { FilmRenderer, type RenderUniforms } from './engine/gl/renderer';
 import { lutKey, type LutParams } from './engine/film/lut';
 import { luts } from './engine/lutClient';
 import type { DevelopParams } from './engine/film/types';
@@ -17,7 +17,11 @@ class Darkroom {
   private canvas: HTMLCanvasElement | null = null;
   private photoId: string | null = null;
   private photo: Photo | null = null;
-  private auxEv: number | null = null;
+  /** Base/mid layers for the current photo and white balance (rebuilt when the WB gains change). */
+  private layers: AuxCache | null = null;
+  private layersKey = '';
+  /** What the aux texture on the GPU was built from: WB gains and rounded exposure. */
+  private auxKey = '';
   private lutApplied = '';
   private lutWanted = '';
   private raf = 0;
@@ -50,22 +54,41 @@ class Darkroom {
     this.photoId = null;
   }
 
-  /** Make sure the GPU holds this photo, its aux layers for the current exposure, and the right LUTs. */
-  async sync(photo: Photo): Promise<void> {
+  /**
+   * Make sure the GPU holds this photo's image and region maps, plus aux layers built for the
+   * photo's current white balance and exposure.
+   */
+  private ensureGpu(photo: Photo, u: RenderUniforms): void {
     const r = this.renderer;
     if (!r) return;
     if (this.photoId !== photo.id) {
       r.setImage(photo.full, photo.w, photo.h);
+      r.setRegions(packRegions(photo.regions), photo.regions.w, photo.regions.h);
       this.photoId = photo.id;
-      this.auxEv = null;
+      this.layers = null;
+      this.auxKey = '';
       this.lutApplied = '';
     }
-    this.photo = photo;
-    const ev = Math.round(photo.params.exposure * 20) / 20;
-    if (this.auxEv !== ev) {
-      r.setAux(packAux(photo.work, photo.aux, photo.mask, ev), photo.work.w, photo.work.h);
-      this.auxEv = ev;
+    const wbKey = u.wb.map((g) => g.toFixed(5)).join(',');
+    if (!this.layers || this.layersKey !== wbKey) {
+      this.layers = auxLayers(photo.work, u.wb);
+      this.layersKey = wbKey;
+      this.auxKey = '';
     }
+    const ev = Math.round(u.ev * 20) / 20;
+    const key = `${wbKey}|${ev}`;
+    if (this.auxKey !== key) {
+      r.setAux(packAux(photo.work, this.layers, photo.mask, ev), photo.work.w, photo.work.h);
+      this.auxKey = key;
+    }
+  }
+
+  /** Make sure the GPU holds this photo, its aux layers for the current white balance and exposure, and the right LUTs. */
+  async sync(photo: Photo): Promise<void> {
+    const r = this.renderer;
+    if (!r) return;
+    this.photo = photo;
+    this.ensureGpu(photo, uniformsFor(photo.params, photo.stats, photo.scene, { w: photo.w, h: photo.h }, !!photo.mask));
     const lp = lutParams(photo.params);
     const key = lutKey(lp, false, 48);
     if (key !== this.lutApplied) {
@@ -95,6 +118,7 @@ class Darkroom {
     const s = getState();
     const p = s.photos.find((x) => x.id === photo.id)?.params ?? photo.params;
     const u = uniformsFor(p, photo.stats, photo.scene, { w: photo.w, h: photo.h }, !!photo.mask);
+    this.ensureGpu(photo, u);
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const outW = Math.max(2, Math.round(c.clientWidth * dpr)), outH = Math.max(2, Math.round(c.clientHeight * dpr));
     const [x0, y0, x1, y1] = u.crop;
@@ -117,6 +141,7 @@ class Darkroom {
     this.lutApplied = '';
     const p = photo.params;
     const u = uniformsFor(p, photo.stats, photo.scene, { w: photo.w, h: photo.h }, !!photo.mask);
+    this.ensureGpu(photo, u);
     const fa = frameAspect(opts.frame, photo.w >= photo.h);
     if (fa) u.crop = cropRect(p.crop, p.cropCenter, photo.w, photo.h, fa);
     const cropW = (u.crop[2] - u.crop[0]) * photo.w, cropH = (u.crop[3] - u.crop[1]) * photo.h;

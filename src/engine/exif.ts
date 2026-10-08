@@ -19,53 +19,102 @@ export interface ExifInfo {
   lon?: number;
   orientation?: number;
   software?: string;
+  /** EXIF UserComment (e.g. "Screenshot" on phone screenshots). */
+  userComment?: string;
+  /** The file is a PNG container. */
+  png?: boolean;
+  /** Pixel size read from the file header (falls back to EXIF image size). */
   width?: number;
   height?: number;
 }
+
+export const EXIF_OPTIONS = {
+  tiff: true, exif: true, gps: true, ifd1: false, xmp: false, icc: false, iptc: false,
+  reviveValues: true, translateValues: false, mergeOutput: true, userComment: true,
+};
+
+/** Pixel size from the first bytes of a PNG (IHDR) or JPEG (SOF marker). */
+export function imageHeaderSize(b: Uint8Array): { w: number; h: number } | null {
+  if (b.length >= 24 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) {
+    const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+    return { w: dv.getUint32(16), h: dv.getUint32(20) };
+  }
+  if (b.length < 4 || b[0] !== 0xff || b[1] !== 0xd8) return null;
+  let p = 2;
+  while (p + 9 < b.length) {
+    if (b[p] !== 0xff) { p++; continue; }
+    const m = b[p + 1];
+    if (m === 0xff) { p++; continue; }
+    if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) {
+      return { h: (b[p + 5] << 8) | b[p + 6], w: (b[p + 7] << 8) | b[p + 8] };
+    }
+    if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7)) { p += 2; continue; }
+    p += 2 + ((b[p + 2] << 8) | b[p + 3]);
+  }
+  return null;
+}
+
+const decodeComment = (v: unknown): string | undefined => {
+  if (typeof v === 'string') return v.replace(/\0/g, '').trim() || undefined;
+  if (v && typeof (v as ArrayLike<number>).length === 'number') {
+    // EXIF UserComment: 8-byte character-code prefix, then the text.
+    const bytes = Uint8Array.from(v as ArrayLike<number>).subarray(8);
+    return new TextDecoder().decode(bytes).replace(/\0/g, '').trim() || undefined;
+  }
+  return undefined;
+};
 
 const parseOffset = (s?: string) => {
   const m = s && /^([+-])(\d{2}):?(\d{2})$/.exec(s.trim());
   return m ? (m[1] === '-' ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3])) : undefined;
 };
 
+/** Maps the raw exifr output (and header size) onto ExifInfo. */
+export function exifFromRaw(t: any, head: { png?: boolean; size?: { w: number; h: number } | null } = {}): ExifInfo {
+  if (!t) t = {};
+  const info: ExifInfo = {
+    make: t.Make?.trim?.(), model: t.Model?.trim?.(), lens: (t.LensModel || t.LensMake)?.trim?.(),
+    focal: t.FocalLength, focal35: t.FocalLengthIn35mmFormat, fNumber: t.FNumber, exposureTime: t.ExposureTime,
+    iso: t.ISO ?? t.ISOSpeedRatings ?? t.PhotographicSensitivity, bias: t.ExposureCompensation ?? t.ExposureBiasValue,
+    flash: typeof t.Flash === 'number' ? (t.Flash & 1) === 1 : undefined,
+    orientation: t.Orientation, software: typeof t.Software === 'string' ? t.Software.trim() : undefined,
+    userComment: decodeComment(t.UserComment ?? t.userComment),
+    png: head.png || undefined,
+    width: head.size?.w ?? t.ExifImageWidth ?? t.ImageWidth,
+    height: head.size?.h ?? t.ExifImageHeight ?? t.ImageHeight,
+    lat: typeof t.latitude === 'number' ? t.latitude : undefined,
+    lon: typeof t.longitude === 'number' ? t.longitude : undefined,
+  };
+  if (Array.isArray(info.iso)) info.iso = (info.iso as unknown as number[])[0];
+  const dt: Date | undefined = t.DateTimeOriginal instanceof Date ? t.DateTimeOriginal : t.CreateDate instanceof Date ? t.CreateDate : undefined;
+  if (dt && !isNaN(dt.getTime())) {
+    // exifr interprets the naive camera clock in the browser's zone; keep the wall-clock fields.
+    info.taken = dt;
+    info.offsetMin = parseOffset(t.OffsetTimeOriginal || t.OffsetTime);
+    if (info.offsetMin !== undefined) {
+      const wall = Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate(), dt.getHours(), dt.getMinutes(), dt.getSeconds());
+      info.utc = new Date(wall - info.offsetMin * 60000);
+    }
+  }
+  if (!info.utc && t.GPSDateStamp && Array.isArray(t.GPSTimeStamp)) {
+    const [y, mo, d] = String(t.GPSDateStamp).split(':').map(Number);
+    const [hh, mm, ss] = t.GPSTimeStamp as number[];
+    const u = Date.UTC(y, mo - 1, d, hh, mm, Math.floor(ss));
+    if (!isNaN(u)) info.utc = new Date(u);
+  }
+  return info;
+}
+
 export async function readExif(file: File): Promise<ExifInfo> {
+  const head = new Uint8Array(await file.slice(0, 256 * 1024).arrayBuffer());
+  const size = imageHeaderSize(head);
+  const png = head[0] === 0x89 && head[1] === 0x50;
   try {
     const exifr = (await import('exifr')).default;
-    const t: any = await exifr.parse(file, {
-      tiff: true, exif: true, gps: true, ifd1: false, xmp: false, icc: false, iptc: false,
-      reviveValues: true, translateValues: false, mergeOutput: true,
-    });
-    if (!t) return {};
-    const info: ExifInfo = {
-      make: t.Make?.trim(), model: t.Model?.trim(), lens: (t.LensModel || t.LensMake)?.trim?.(),
-      focal: t.FocalLength, focal35: t.FocalLengthIn35mmFormat, fNumber: t.FNumber, exposureTime: t.ExposureTime,
-      iso: t.ISO ?? t.ISOSpeedRatings ?? t.PhotographicSensitivity, bias: t.ExposureCompensation ?? t.ExposureBiasValue,
-      flash: typeof t.Flash === 'number' ? (t.Flash & 1) === 1 : undefined,
-      orientation: t.Orientation, software: t.Software,
-      width: t.ExifImageWidth, height: t.ExifImageHeight,
-      lat: typeof t.latitude === 'number' ? t.latitude : undefined,
-      lon: typeof t.longitude === 'number' ? t.longitude : undefined,
-    };
-    if (Array.isArray(info.iso)) info.iso = (info.iso as unknown as number[])[0];
-    const dt: Date | undefined = t.DateTimeOriginal instanceof Date ? t.DateTimeOriginal : t.CreateDate instanceof Date ? t.CreateDate : undefined;
-    if (dt && !isNaN(dt.getTime())) {
-      // exifr interprets the naive camera clock in the browser's zone; keep the wall-clock fields.
-      info.taken = dt;
-      info.offsetMin = parseOffset(t.OffsetTimeOriginal || t.OffsetTime);
-      if (info.offsetMin !== undefined) {
-        const wall = Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate(), dt.getHours(), dt.getMinutes(), dt.getSeconds());
-        info.utc = new Date(wall - info.offsetMin * 60000);
-      }
-    }
-    if (!info.utc && t.GPSDateStamp && Array.isArray(t.GPSTimeStamp)) {
-      const [y, mo, d] = String(t.GPSDateStamp).split(':').map(Number);
-      const [hh, mm, ss] = t.GPSTimeStamp as number[];
-      const u = Date.UTC(y, mo - 1, d, hh, mm, Math.floor(ss));
-      if (!isNaN(u)) info.utc = new Date(u);
-    }
-    return info;
+    const t: any = await exifr.parse(file, EXIF_OPTIONS);
+    return exifFromRaw(t, { png, size });
   } catch {
-    return {};
+    return exifFromRaw(null, { png, size });
   }
 }
 

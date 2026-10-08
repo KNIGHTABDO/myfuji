@@ -10,6 +10,7 @@ import { SIMS } from './engine/film/sims';
 import type { DevelopParams, SimId } from './engine/film/types';
 import type { Photo } from './engine/pipeline';
 import { activePhoto, getState, updateParams } from './state';
+import { computeRegions, type RegionMaps } from './engine/regions';
 
 const PNG = { frame: 'none', dateStamp: false, format: 'png', quality: 1, size: 'full' } as const;
 
@@ -34,7 +35,7 @@ async function load(name: string, base64: string) {
   enqueue([file]);
   const t0 = Date.now();
   while (getState().photos.length <= before) {
-    if (Date.now() - t0 > 240_000) throw new Error('timed out developing ' + name);
+    if (Date.now() - t0 > 600_000) throw new Error('timed out developing ' + name);
     await new Promise((r) => setTimeout(r, 100));
   }
   const p = need();
@@ -72,6 +73,7 @@ function analysis() {
       lighting: sc.lighting, lightingScores: sc.lightingScores.slice(0, 5).map(([k, x]) => [k, r3(x)]),
       time: sc.time, facts: sc.facts, story: sc.story, faceLum: sc.faceLum === null ? null : r3(sc.faceLum),
       backgroundLum: r3(sc.backgroundLum), subjectDeficit: r3(sc.subjectDeficit), saliency: sc.saliency.map(r3),
+      warmLight: r3(sc.warmLight), backlight: r3(sc.backlight), inputKind: sc.inputKind, gentle: r3(sc.gentle),
     },
     rec: {
       picks: p.rec.picks.map((k) => ({ sim: k.sim, score: r3(k.score), reasons: k.reasons })),
@@ -112,10 +114,57 @@ async function render(sim?: SimId, patch: Partial<DevelopParams> = {}) {
   return { dataUrl: await toDataURL(blob), params: p.params, w: p.w, h: p.h, bytes: blob.size };
 }
 
+/** Greyscale PNG (data URL) of a 0..1 map on the analysis grid. */
+function mapPNG(m: Float32Array, w: number, h: number): string {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d')!;
+  const im = ctx.createImageData(w, h);
+  for (let i = 0; i < w * h; i++) {
+    const v = Math.round(Math.min(1, Math.max(0, m[i])) * 255);
+    im.data[i * 4] = v; im.data[i * 4 + 1] = v; im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(im, 0, 0);
+  return c.toDataURL('image/png');
+}
+
+/**
+ * Region maps of the active photo (computeRegions on p.work + p.mask). ms is the warm
+ * (second) run, coldMs the first, so JIT warm-up does not hide the steady-state cost.
+ */
+interface RegionsOut { w: number; h: number; ms: number; coldMs: number; hasMask: boolean; sky: string; foliage: string; ground: string; sun: string }
+
+function regions(): RegionsOut {
+  const p = need();
+  let t0 = performance.now();
+  computeRegions(p.work, p.mask);
+  const coldMs = performance.now() - t0;
+  t0 = performance.now();
+  const m: RegionMaps = computeRegions(p.work, p.mask);
+  const ms = performance.now() - t0;
+  const { w, h } = m;
+  return {
+    w, h, ms: r3(ms), coldMs: r3(coldMs), hasMask: !!p.mask,
+    sky: mapPNG(m.sky, w, h), foliage: mapPNG(m.foliage, w, h), ground: mapPNG(m.ground, w, h), sun: mapPNG(m.sun, w, h),
+  };
+}
+
+/** Raw analysis inputs (base64 Float32 lin/Y/mask) for offline region tuning. */
+function regionInputs() {
+  const p = need();
+  const b64 = (a: Float32Array) => {
+    const u = new Uint8Array(a.buffer, a.byteOffset, a.byteLength);
+    let s = '';
+    for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000));
+    return btoa(s);
+  };
+  return { w: p.work.w, h: p.work.h, lin: b64(p.work.lin), Y: b64(p.work.Y), mask: p.mask ? b64(p.mask) : null };
+}
+
 const sims = SIMS.map((s) => s.id);
 
 declare global {
   interface Window { __myfuji?: unknown }
 }
 
-window.__myfuji = { load, analysis, setParams, autoFor, render, sims, activePhoto: () => need().id };
+window.__myfuji = { load, analysis, setParams, autoFor, render, regions, regionInputs, sims, activePhoto: () => need().id };

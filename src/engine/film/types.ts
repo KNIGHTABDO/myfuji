@@ -48,6 +48,8 @@ export interface DevelopParams {
   /** 0..1 lift for faces/subjects that sit darker than the scene. */
   subjectLift: number;
   skinProtect: boolean;
+  /** 0..1.5 strength of the per-region looks (sky, foliage, ground, sun). Auto 1, off 0. */
+  regions: number;
   vignette: number;
   halation: number;
   fade: number;
@@ -82,6 +84,7 @@ export const DEFAULT_PARAMS: DevelopParams = {
   smartLight: 0.5,
   subjectLift: 0.5,
   skinProtect: true,
+  regions: 1,
   vignette: 0,
   halation: 0,
   fade: 0,

@@ -20,6 +20,12 @@ export interface RenderUniforms {
   leak: number;
   leakSeed: number;
   crop: [number, number, number, number];
+  /** Per-region look strength: params.regions x (1 - 0.5 gentle). 0 = off. */
+  regionAmt: number;
+  /** Scene warm-light score 0..1 (drives the sky, foliage and ground looks). */
+  warm: number;
+  /** Scene backlight score 0..1. */
+  back: number;
 }
 
 type Loc = WebGLUniformLocation | null;
@@ -31,6 +37,7 @@ export class FilmRenderer {
   private loc: Record<string, Loc> = {};
   private src: WebGLTexture | null = null;
   private aux: WebGLTexture | null = null;
+  private regions: WebGLTexture | null = null;
   private lut: WebGLTexture | null = null;
   private lutSkin: WebGLTexture | null = null;
   private lutSize = 2;
@@ -61,6 +68,7 @@ export class FilmRenderer {
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     this.lut = this.make3D(); this.lutSkin = this.make3D();
+    this.setRegions(null);
   }
 
   private shader(type: number, code: string) {
@@ -109,6 +117,22 @@ export class FilmRenderer {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, data);
   }
 
+  /** Region maps (RGBA16F: sky, foliage, ground, sun), same grid as the aux layers. null uploads a 1x1 zero map. */
+  setRegions(data: Uint16Array | null, w = 1, h = 1) {
+    const gl = this.gl;
+    if (!this.regions) {
+      this.regions = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, this.regions);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    }
+    gl.bindTexture(gl.TEXTURE_2D, this.regions);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, data ? w : 1, data ? h : 1, 0, gl.RGBA, gl.HALF_FLOAT, data ?? new Uint16Array(4));
+  }
+
   setLuts(main: Uint16Array, skin: Uint16Array, size: number) {
     const gl = this.gl;
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
@@ -128,7 +152,11 @@ export class FilmRenderer {
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.aux); gl.uniform1i(L.uAux, 1);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_3D, this.lut); gl.uniform1i(L.uLut, 2);
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_3D, this.lutSkin); gl.uniform1i(L.uLutSkin, 3);
+    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, this.regions); gl.uniform1i(L.uRegions, 4);
     gl.uniform1f(L.uLutSize, this.lutSize);
+    gl.uniform1f(L.uRegionAmt, u.regionAmt);
+    gl.uniform1f(L.uWarm, u.warm);
+    gl.uniform1f(L.uBack, u.back);
     gl.uniform4f(L.uView, view[0], view[1], view[2], view[3]);
     gl.uniform4f(L.uCrop, ...u.crop);
     gl.uniform2f(L.uFull, this.width, this.height);
@@ -217,7 +245,7 @@ export class FilmRenderer {
 
   dispose() {
     const gl = this.gl;
-    [this.src, this.aux, this.lut, this.lutSkin, this.fboTex].forEach((t) => t && gl.deleteTexture(t));
+    [this.src, this.aux, this.regions, this.lut, this.lutSkin, this.fboTex].forEach((t) => t && gl.deleteTexture(t));
     if (this.fbo) gl.deleteFramebuffer(this.fbo);
     gl.getExtension('WEBGL_lose_context')?.loseContext();
   }

@@ -1,4 +1,5 @@
-import { toHalf } from './color';
+import { toHalf, type RGB } from './color';
+import type { RegionMaps } from './regions';
 
 /** Separable running-sum box blur with clamped edges. */
 export function boxBlur(src: Float32Array, w: number, h: number, r: number): Float32Array {
@@ -63,10 +64,19 @@ export interface AuxCache {
   mid: Float32Array;
 }
 
-export function auxLayers(img: WorkImage): AuxCache {
-  const { w, h, Y } = img, n = w * h, L = Math.max(w, h);
+/**
+ * Base and mid log-luma layers. With wb, luma is taken after the same white-balance gains the shader
+ * applies, so a warm or cool cast does not modulate the local tone mapping.
+ */
+export function auxLayers(img: WorkImage, wb?: RGB): AuxCache {
+  const { w, h, lin, Y } = img, n = w * h, L = Math.max(w, h);
   const logY = new Float32Array(n);
-  for (let i = 0; i < n; i++) logY[i] = Math.log2(Math.max(Y[i], 1e-5));
+  for (let i = 0; i < n; i++) {
+    const y = wb
+      ? 0.2126 * wb[0] * lin[i * 3] + 0.7152 * wb[1] * lin[i * 3 + 1] + 0.0722 * wb[2] * lin[i * 3 + 2]
+      : Y[i];
+    logY[i] = Math.log2(Math.max(y, 1e-5));
+  }
   const base = guidedFilter(logY, w, h, Math.max(2, Math.round(L * 0.035)), 0.35);
   const mid = gaussBlur(logY, w, h, Math.max(2, Math.round(L * 0.012)));
   return { logY, base, mid };
@@ -87,6 +97,18 @@ export function packAux(img: WorkImage, layers: AuxCache, mask: Float32Array | n
     out[i * 4 + 1] = toHalf(layers.mid[i]);
     out[i * 4 + 2] = toHalf(Math.min(8, hal[i] * 0.6 + hal2[i] * 0.4));
     out[i * 4 + 3] = toHalf(mask ? mask[i] : 0);
+  }
+  return out;
+}
+
+/** Pack the region maps into RGBA16F: R sky, G foliage, B ground, A sun. */
+export function packRegions(m: RegionMaps): Uint16Array {
+  const n = m.w * m.h, out = new Uint16Array(n * 4);
+  for (let i = 0; i < n; i++) {
+    out[i * 4] = toHalf(m.sky[i]);
+    out[i * 4 + 1] = toHalf(m.foliage[i]);
+    out[i * 4 + 2] = toHalf(m.ground[i]);
+    out[i * 4 + 3] = toHalf(m.sun[i]);
   }
   return out;
 }

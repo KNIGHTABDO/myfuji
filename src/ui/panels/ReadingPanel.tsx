@@ -12,6 +12,8 @@ const LIGHT: Record<string, string> = {
   'harsh-sun': 'Hard sun', daylight: 'Daylight', backlit: 'Backlit', 'low-key': 'Low key', 'high-key': 'High key', neon: 'Neon',
 };
 
+const INPUT: Record<string, string> = { camera: 'Camera file', screenshot: 'Screenshot', graded: 'Already graded', unknown: 'Unknown source' };
+
 export function ReadingPanel() {
   const p = useStore(activePhoto);
   if (!p) return null;
@@ -29,6 +31,7 @@ export function ReadingPanel() {
           <span className="chip accent">{SUBJECT[sc.subject]}</span>
           <span className="chip accent">{LIGHT[sc.lighting]}</span>
           <span className="chip">{time.inferred.replace('-', ' ')} · {timeLabel}</span>
+          <span className="chip">{INPUT[sc.inputKind]}{sc.gentle >= 0.3 ? ` · gentle ${Math.round(sc.gentle * 100)}%` : ''}</span>
           {!v.available && <span className="chip red">pixel analysis only</span>}
         </div>
         <ul className="facts">{sc.facts.map((f) => <li key={f}>{f}</li>)}</ul>
